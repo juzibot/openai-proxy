@@ -23,4 +23,11 @@ export class ProxyController {
     }
     return result;
   }
+
+  @Post('/v1/embeddings')
+  @HttpCode(200)
+  async embeddings(@Body() body: any, @Headers() headers: any) {
+    const result = await this.service.embeddings(body, headers);
+    return result;
+  }
 }

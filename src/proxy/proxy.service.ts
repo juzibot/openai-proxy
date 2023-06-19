@@ -12,24 +12,32 @@ export class ProxyService {
   private readonly configService: ConfigService;
 
   async chatCompletion(body: any, headers: any) {
-    const socksHost = this.configService.get<string | undefined>('socksHost');
-    let httpAgent: HttpAgent | undefined;
-    let httpsAgent: HttpsAgent | undefined;
-    if (socksHost) {
-      httpAgent = new SocksProxyAgent(socksHost);
-      httpsAgent = new SocksProxyAgent(socksHost);
-    }
+    const url = 'https://api.openai.com/v1/chat/completions';
+    return this.makeRequest(url, headers, body, body.stream);
+  }
 
+  async embeddings(body: any, headers: any) {
+    const url = 'https://api.openai.com/v1/embeddings';
+    return this.makeRequest(url, headers, body);
+  }
+
+  private async makeRequest(
+    url: string,
+    headers: any,
+    body: any,
+    stream?: boolean,
+  ) {
+    const { httpAgent, httpsAgent } = this.getAgents();
     let response: any;
     try {
-      response = await axios('https://api.openai.com/v1/chat/completions', {
+      response = await axios(url, {
         httpAgent,
         httpsAgent,
         method: 'POST',
         headers: {
           Authorization: headers.authorization,
         },
-        responseType: body.stream ? 'stream' : 'json',
+        responseType: stream ? 'stream' : 'json',
         data: body,
         timeout: 1 * MINUTE,
       });
@@ -51,5 +59,19 @@ export class ProxyService {
       throw error;
     }
     return response.data;
+  }
+
+  private getAgents() {
+    const socksHost = this.configService.get<string | undefined>('socksHost');
+    let httpAgent: HttpAgent | undefined;
+    let httpsAgent: HttpsAgent | undefined;
+    if (socksHost) {
+      httpAgent = new SocksProxyAgent(socksHost);
+      httpsAgent = new SocksProxyAgent(socksHost);
+    }
+    return {
+      httpAgent,
+      httpsAgent,
+    };
   }
 }
