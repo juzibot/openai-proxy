@@ -39,7 +39,7 @@ export class ProxyService {
         },
         responseType: stream ? 'stream' : 'json',
         data: body,
-        timeout: 1 * MINUTE,
+        timeout: 10 * MINUTE,
       });
     } catch (e) {
       if (e.response) {
