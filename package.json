@@ -31,7 +31,8 @@
     "nestjs-form-data": "^1.9.7",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
-    "socks-proxy-agent": "^8.0.1"
+    "socks-proxy-agent": "^8.0.1",
+    "webpack": "^5.95.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.0.0",
