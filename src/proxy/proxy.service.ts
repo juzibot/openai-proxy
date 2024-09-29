@@ -30,7 +30,6 @@ export class ProxyService {
       url,
       {
         Authorization: headers.authorization,
-        'Content-Type': 'multipart/form-data',
       },
       body,
     );
