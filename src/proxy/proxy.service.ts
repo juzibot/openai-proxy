@@ -5,6 +5,7 @@ import { Agent as HttpAgent } from 'http';
 import { Agent as HttpsAgent } from 'https';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { MINUTE } from 'src/common/time';
+import FormData from 'form-data';
 
 @Injectable()
 export class ProxyService {
@@ -13,12 +14,48 @@ export class ProxyService {
 
   async chatCompletion(body: any, headers: any) {
     const url = 'https://api.openai.com/v1/chat/completions';
-    return this.makeRequest(url, headers, body, body.stream);
+    return this.makeRequest(
+      url,
+      {
+        Authorization: headers.authorization,
+      },
+      body,
+      body.stream,
+    );
   }
 
   async embeddings(body: any, headers: any) {
     const url = 'https://api.openai.com/v1/embeddings';
-    return this.makeRequest(url, headers, body);
+    return this.makeRequest(
+      url,
+      {
+        Authorization: headers.authorization,
+        'Content-Type': 'multipart/form-data',
+      },
+      body,
+    );
+  }
+
+  async transcriptions(file: Express.Multer.File, body: any, headers: any) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, file.originalname);
+    for (const [key, value] of Object.entries(body)) {
+      formData.append(key, value);
+    }
+
+    const finalHeaders = {
+      Authorization: headers.authorization,
+      'Content-Type': 'multipart/form-data',
+      ...formData.getHeaders(),
+    };
+
+    const response = await this.makeRequest(
+      'https://api.openai.com/v1/audio/transcriptions',
+      finalHeaders,
+      formData,
+    );
+
+    return response;
   }
 
   private async makeRequest(
@@ -34,9 +71,7 @@ export class ProxyService {
         httpAgent,
         httpsAgent,
         method: 'POST',
-        headers: {
-          Authorization: headers.authorization,
-        },
+        headers,
         responseType: stream ? 'stream' : 'json',
         data: body,
         timeout: 10 * MINUTE,
@@ -48,7 +83,10 @@ export class ProxyService {
         }
         throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
-        throw new Error(`Failed to send message. request: ${e.request}`);
+        console.log(e.message);
+        throw new Error(
+          `Failed to send message. error message: ${e.message}, request: ${e.request}`,
+        );
       } else {
         throw e;
       }
@@ -68,6 +106,7 @@ export class ProxyService {
     if (socksHost) {
       httpAgent = new SocksProxyAgent(socksHost);
       httpsAgent = new SocksProxyAgent(socksHost);
+      httpsAgent.options.rejectUnauthorized = false;
     }
     return {
       httpAgent,
