@@ -17,7 +17,7 @@ export class AnthropicProxyController {
   @Inject()
   private readonly service: AnthropicProxyService;
 
-  @Post('/anthropic/v1/chat/completions')
+  @Post('/anthropic/v1/messages')
   @HttpCode(200)
   async chatCompletion(@Body() body: any, @Headers() headers: any) {
     const result = await this.service.chatCompletion(body, headers);

@@ -13,7 +13,7 @@ export class AnthropicProxyService {
   private readonly configService: ConfigService;
 
   async chatCompletion(body: any, headers: any) {
-    const url = 'https://api.anthropic.com/v1/chat/completions';
+    const url = 'https://api.anthropic.com/v1/messages';
     return this.makeRequest(url, headers, body, body.stream);
   }
 
@@ -58,8 +58,9 @@ export class AnthropicProxyService {
         httpsAgent,
         method: 'POST',
         headers: {
-          ...headers,
-          Host: 'api.anthropic.com',
+          'Content-Type': 'application/json',
+          'anthropic-version': headers['anthropic-version'],
+          'x-api-key': headers['x-api-key'],
         },
         responseType: stream ? 'stream' : 'json',
         data: body,
