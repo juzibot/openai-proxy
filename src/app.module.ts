@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
-import { ProxyModule } from './proxy/proxy.module';
+import { OpenaiProxyModule } from './openai/openai-proxy.module';
 import { NestjsFormDataModule } from 'nestjs-form-data';
+import { AnthropicProxyModule } from './anthropic/anthropic-proxy.module';
 
 @Module({
   imports: [
@@ -11,7 +12,8 @@ import { NestjsFormDataModule } from 'nestjs-form-data';
       isGlobal: true,
     }),
     NestjsFormDataModule.config({ isGlobal: true }),
-    ProxyModule,
+    OpenaiProxyModule,
+    AnthropicProxyModule,
   ],
 })
 export class AppModule {}

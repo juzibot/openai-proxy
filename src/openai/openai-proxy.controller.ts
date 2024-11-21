@@ -8,14 +8,14 @@ import {
   StreamableFile,
   UploadedFile,
 } from '@nestjs/common';
-import { ProxyService } from './proxy.service';
+import { OpenaiProxyService } from './openai-proxy.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors } from '@nestjs/common';
 
 @Controller()
-export class ProxyController {
+export class OpenaiProxyController {
   @Inject()
-  private readonly service: ProxyService;
+  private readonly service: OpenaiProxyService;
 
   @Post('/v1/chat/completions')
   @HttpCode(200)

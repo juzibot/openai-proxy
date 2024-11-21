@@ -8,31 +8,18 @@ import { MINUTE } from 'src/common/time';
 import FormData from 'form-data';
 
 @Injectable()
-export class ProxyService {
+export class AnthropicProxyService {
   @Inject()
   private readonly configService: ConfigService;
 
   async chatCompletion(body: any, headers: any) {
-    const url = 'https://api.openai.com/v1/chat/completions';
-    return this.makeRequest(
-      url,
-      {
-        Authorization: headers.authorization,
-      },
-      body,
-      body.stream,
-    );
+    const url = 'https://api.anthropic.com/v1/chat/completions';
+    return this.makeRequest(url, headers, body, body.stream);
   }
 
   async embeddings(body: any, headers: any) {
-    const url = 'https://api.openai.com/v1/embeddings';
-    return this.makeRequest(
-      url,
-      {
-        Authorization: headers.authorization,
-      },
-      body,
-    );
+    const url = 'https://api.anthropic.com/v1/embeddings';
+    return this.makeRequest(url, headers, body);
   }
 
   async transcriptions(file: Express.Multer.File, body: any, headers: any) {
@@ -49,7 +36,7 @@ export class ProxyService {
     };
 
     const response = await this.makeRequest(
-      'https://api.openai.com/v1/audio/transcriptions',
+      'https://api.anthropic.com/v1/audio/transcriptions',
       finalHeaders,
       formData,
     );
@@ -70,7 +57,10 @@ export class ProxyService {
         httpAgent,
         httpsAgent,
         method: 'POST',
-        headers,
+        headers: {
+          ...headers,
+          Host: 'api.anthropic.com',
+        },
         responseType: stream ? 'stream' : 'json',
         data: body,
         timeout: 10 * MINUTE,
