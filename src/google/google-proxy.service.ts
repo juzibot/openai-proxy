@@ -54,7 +54,7 @@ export class GoogleProxyService {
       });
     } catch (e) {
       if (e.response) {
-        if (body.stream) {
+        if (stream) {
           return e.response.data;
         }
         throw new HttpException(e.response.data, e.response.status);

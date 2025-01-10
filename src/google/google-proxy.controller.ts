@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Request,
+  StreamableFile,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { GoogleProxyService } from './google-proxy.service';
@@ -44,7 +45,7 @@ export class GoogleProxyController {
         query,
         model,
       );
-      return result;
+      return new StreamableFile(result);
     } else {
       throw new HttpException('Method not found', 404);
     }
