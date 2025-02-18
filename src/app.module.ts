@@ -5,6 +5,7 @@ import { OpenaiProxyModule } from './openai/openai-proxy.module';
 import { NestjsFormDataModule } from 'nestjs-form-data';
 import { AnthropicProxyModule } from './anthropic/anthropic-proxy.module';
 import { GoogleProxyModule } from './google/google-proxy.module';
+import { XaiProxyModule } from './xai/xai-proxy.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { GoogleProxyModule } from './google/google-proxy.module';
     OpenaiProxyModule,
     AnthropicProxyModule,
     GoogleProxyModule,
+    XaiProxyModule,
   ],
 })
 export class AppModule {}
