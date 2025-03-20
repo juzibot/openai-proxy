@@ -12,12 +12,12 @@ import { AnthropicProxyService } from './anthropic-proxy.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors } from '@nestjs/common';
 
-@Controller()
+@Controller('anthropic')
 export class AnthropicProxyController {
   @Inject()
   private readonly service: AnthropicProxyService;
 
-  @Post('/anthropic/v1/messages')
+  @Post('/v1/messages')
   @HttpCode(200)
   async chatCompletion(@Body() body: any, @Headers() headers: any) {
     const result = await this.service.chatCompletion(body, headers);
@@ -27,14 +27,14 @@ export class AnthropicProxyController {
     return result;
   }
 
-  @Post('/anthropic/v1/embeddings')
+  @Post('/v1/embeddings')
   @HttpCode(200)
   async embeddings(@Body() body: any, @Headers() headers: any) {
     const result = await this.service.embeddings(body, headers);
     return result;
   }
 
-  @Post('/anthropic/v1/audio/transcriptions')
+  @Post('/v1/audio/transcriptions')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(200)
   async transcriptions(

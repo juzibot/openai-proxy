@@ -6,6 +6,7 @@ import { NestjsFormDataModule } from 'nestjs-form-data';
 import { AnthropicProxyModule } from './anthropic/anthropic-proxy.module';
 import { GoogleProxyModule } from './google/google-proxy.module';
 import { XaiProxyModule } from './xai/xai-proxy.module';
+import { BedrockProxyModule } from './bedrock/bedrock-proxy.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { XaiProxyModule } from './xai/xai-proxy.module';
     AnthropicProxyModule,
     GoogleProxyModule,
     XaiProxyModule,
+    BedrockProxyModule,
   ],
 })
 export class AppModule {}

@@ -13,12 +13,12 @@ import {
 import { Request as ExpressRequest } from 'express';
 import { GoogleProxyService } from './google-proxy.service';
 
-@Controller()
+@Controller('google')
 export class GoogleProxyController {
   @Inject()
   private readonly service: GoogleProxyService;
 
-  @Post('/google/v1beta/models/:reqParams')
+  @Post('/v1beta/models/:reqParams')
   @HttpCode(200)
   async generateContent(
     @Body() body: any,
