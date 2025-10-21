@@ -55,9 +55,14 @@ export class GoogleProxyService {
       timeout: 5 * MINUTE,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: (status) => status === 200 || status === 308,
+      validateStatus: (status) => status === 200 || status === 201 || status === 308,
       isBinaryData: true,
+      returnFullResponse: true,
     });
+
+    if (result.status === 201) {
+      return result;
+    }
     return result.data;
   }
 
@@ -82,14 +87,18 @@ export class GoogleProxyService {
       timeout: 5 * MINUTE,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: (status) => status === 200 || status === 308,
+      validateStatus: (status) => status === 200 || status === 201 || status === 308,
       isBinaryData: true,
+      returnFullResponse: true,
     });
+    if (result.status === 201) {
+      return result;
+    }
     return result.data;
   }
 
-  async getFileInfo(url: string, headers: any) {
-    return this.makeRequest(url, headers, null, {}, false, {
+  async getFileInfo(url: string, headers: any, query?: any) {
+    return this.makeRequest(url, headers, null, query || {}, false, {
       method: 'GET',
       timeout: 30000,
     });
