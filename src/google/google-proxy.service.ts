@@ -82,14 +82,22 @@ export class GoogleProxyService {
       timeout: 5 * MINUTE,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: (status) => status === 200 || status === 308,
+      // 接受 200 (继续上传), 201 (创建成功), 308 (恢复不完整)
+      validateStatus: (status) => status === 200 || status === 201 || status === 308,
       isBinaryData: true,
+      returnFullResponse: true, // 返回完整响应以获取文件信息
     });
+
+    // 如果是最后一个分块 (状态码 201)，返回完整响应包括文件信息
+    if (result.status === 201) {
+      return result;
+    }
+    // 否则只返回 data (中间分块)
     return result.data;
   }
 
-  async getFileInfo(url: string, headers: any) {
-    return this.makeRequest(url, headers, null, {}, false, {
+  async getFileInfo(url: string, headers: any, query?: any) {
+    return this.makeRequest(url, headers, null, query || {}, false, {
       method: 'GET',
       timeout: 30000,
     });

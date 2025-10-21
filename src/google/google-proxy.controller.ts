@@ -66,7 +66,21 @@ export class GoogleProxyController {
       const queryString = new URLSearchParams(query).toString();
       const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?${queryString}`;
       const bufferBody = req.body;
-      return this.service.uploadFileData(uploadUrl, bufferBody, headers);
+      const result = await this.service.uploadFileData(uploadUrl, bufferBody, headers);
+
+      // 如果返回的是完整响应对象（最后一个分块），设置状态码和响应头
+      if (result && typeof result === 'object' && 'status' in result) {
+        res.status(result.status);
+        if (result.headers) {
+          Object.keys(result.headers).forEach(key => {
+            res.setHeader(key, result.headers[key]);
+          });
+        }
+        return result.data;
+      }
+
+      // 否则直接返回（中间分块）
+      return result;
     }
     const result = await this.service.uploadFileInit(body, headers);
     res.status(result.status);
@@ -110,8 +124,9 @@ export class GoogleProxyController {
   async getFile(
     @Param('path') path: string,
     @Headers() headers: any,
+    @Query() query: any,
   ) {
     const url = `https://generativelanguage.googleapis.com/v1beta/${path}`;
-    return this.service.getFileInfo(url, headers);
+    return this.service.getFileInfo(url, headers, query);
   }
 }
