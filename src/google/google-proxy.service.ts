@@ -89,7 +89,7 @@ export class GoogleProxyService {
       maxBodyLength: Infinity,
       validateStatus: (status) => status === 200 || status === 201 || status === 308,
       isBinaryData: true,
-      returnFullResponse: true,
+      returnFullResponse: true, // 返回完整响应以获取文件信息
     });
     if (result.status === 201) {
       return result;
@@ -98,10 +98,12 @@ export class GoogleProxyService {
   }
 
   async getFileInfo(url: string, headers: any, query?: any) {
-    return this.makeRequest(url, headers, null, query || {}, false, {
+    const result = await this.makeRequest(url, headers, null, query || {}, false, {
       method: 'GET',
       timeout: 30000,
+      isBinaryData: true,  // 避免为 GET 请求添加 Content-Type header
     });
+    return result;
   }
 
   private async makeRequest(
