@@ -67,7 +67,7 @@ export class GoogleProxyController {
       const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?${queryString}`;
       const bufferBody = req.body;
       const result = await this.service.uploadFileData(uploadUrl, bufferBody, headers);
-            if (result && typeof result === 'object' && 'status' in result) {
+      if (result && typeof result === 'object' && 'status' in result) {
         res.status(result.status);
         if (result.headers) {
           Object.keys(result.headers).forEach(key => {
@@ -78,6 +78,7 @@ export class GoogleProxyController {
       }
       return result;
     }
+
     const result = await this.service.uploadFileInit(body, headers);
     res.status(result.status);
     Object.keys(result.headers).forEach(key => {
