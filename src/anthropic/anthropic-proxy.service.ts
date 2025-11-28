@@ -56,35 +56,29 @@ export class AnthropicProxyService {
     stream?: boolean,
   ) {
     const { httpAgent, httpsAgent } = this.getAgents();
-    const apiKey = headers['x-api-key'];
-    if (!apiKey) {
-      throw new HttpException('Missing x-api-key header', 401);
-    }
-
-    const requestHeaders = {
-      'Content-Type': 'application/json',
-      'anthropic-version': headers['anthropic-version'] || '2023-06-01',
-      'x-api-key': apiKey,
-    };
-
     let response: any;
     try {
       response = await axios(url, {
         httpAgent,
         httpsAgent,
         method: 'POST',
-        headers: requestHeaders,
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': headers['anthropic-version'],
+          'x-api-key': headers['x-api-key'],
+        },
         responseType: stream ? 'stream' : 'json',
         data: body,
         timeout: 10 * MINUTE,
       });
-    } catch (e: any) {
+    } catch (e) {
       if (e.response) {
-        if (body?.stream) {
+        if (body.stream) {
           return e.response.data;
         }
         throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
+        console.log(e.message);
         throw new Error(
           `Failed to send message. error message: ${e.message}, request: ${e.request}`,
         );
