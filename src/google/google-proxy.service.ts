@@ -175,7 +175,7 @@ export class GoogleProxyService {
     let response: any;
     try {
       response = await axios(url, axiosConfig);
-    } catch (e: any) {
+    } catch (e) {
       if (e.response) {
         if (stream) {
           return e.response.data;
