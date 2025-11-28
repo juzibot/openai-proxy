@@ -27,6 +27,13 @@ export class AnthropicProxyController {
     return result;
   }
 
+  @Post('/v1/messages/count_tokens')
+  @HttpCode(200)
+  async countTokens(@Body() body: any, @Headers() headers: any) {
+    const result = await this.service.countTokens(body, headers);
+    return result;
+  }
+
   @Post('/v1/embeddings')
   @HttpCode(200)
   async embeddings(@Body() body: any, @Headers() headers: any) {

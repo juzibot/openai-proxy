@@ -54,6 +54,26 @@ export class GoogleProxyController {
     }
   }
 
+  @Post('/v1/models/:reqParams')
+  @HttpCode(200)
+  async countTokens(
+    @Body() body: any,
+    @Headers() headers: any,
+    @Query() query: any,
+    @Req() req: Request,
+  ) {
+    const params = req.params as any;
+    const reqParams = params.reqParams;
+    const [model, method] = reqParams.split(':');
+    
+    if (method !== 'countTokens') {
+      throw new HttpException('Method not found', 404);
+    }
+    
+    const result = await this.service.countTokens(body, headers, query, model);
+    return result;
+  }
+
   @Post('upload/v1beta/files')
   async uploadFileInit(
     @Query() query: any,

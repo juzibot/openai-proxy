@@ -17,6 +17,11 @@ export class AnthropicProxyService {
     return this.makeRequest(url, headers, body, body.stream);
   }
 
+  async countTokens(body: any, headers: any) {
+    const url = 'https://api.anthropic.com/v1/messages/count_tokens';
+    return this.makeRequest(url, headers, body);
+  }
+
   async embeddings(body: any, headers: any) {
     const url = 'https://api.anthropic.com/v1/embeddings';
     return this.makeRequest(url, headers, body);
