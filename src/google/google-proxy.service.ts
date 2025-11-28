@@ -26,6 +26,11 @@ export class GoogleProxyService {
     return this.makeRequest(url, headers, body, query, true);
   }
 
+  async countTokens(body: any, headers: any, query: any, model: string) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:countTokens`;
+    return this.makeRequest(url, headers, body, query, false);
+  }
+
   async uploadFileInit(body: any, headers: any): Promise<{ status: number; headers: any; data: any }> {
     const url = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
     const result = await this.makeRequest(url, headers, body, {}, false, {
@@ -170,7 +175,7 @@ export class GoogleProxyService {
     let response: any;
     try {
       response = await axios(url, axiosConfig);
-    } catch (e) {
+    } catch (e: any) {
       if (e.response) {
         if (stream) {
           return e.response.data;
