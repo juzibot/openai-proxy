@@ -45,4 +45,18 @@ export class OpenaiProxyController {
     const result = await this.service.transcriptions(file, body, headers);
     return result;
   }
+
+  @Post('/v1/images/generations')
+  @HttpCode(200)
+  async imageGenerations(@Body() body: any, @Headers() headers: any) {
+    const result = await this.service.imageGenerations(body, headers);
+    return result;
+  }
+
+  @Post('/v1/images/edits')
+  @HttpCode(200)
+  async imageEdits(@Body() body: any, @Headers() headers: any) {
+    const result = await this.service.imageEdits(body, headers);
+    return result;
+  }
 }

@@ -57,6 +57,30 @@ export class OpenaiProxyService {
     return response;
   }
 
+  async imageGenerations(body: any, headers: any) {
+    const url = 'https://api.openai.com/v1/images/generations';
+    return this.makeRequest(
+      url,
+      {
+        Authorization: headers.authorization,
+        'Content-Type': 'application/json',
+      },
+      body,
+    );
+  }
+
+  async imageEdits(body: any, headers: any) {
+    const url = 'https://api.openai.com/v1/images/edits';
+    return this.makeRequest(
+      url,
+      {
+        Authorization: headers.authorization,
+        'Content-Type': 'application/json',
+      },
+      body,
+    );
+  }
+
   private async makeRequest(
     url: string,
     headers: any,
