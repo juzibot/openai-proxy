@@ -59,4 +59,16 @@ export class OpenaiProxyController {
     const result = await this.service.imageEdits(body, headers);
     return result;
   }
+
+  @Post('/v1/files')
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(200)
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @Headers() headers: any,
+  ) {
+    const result = await this.service.uploadFile(file, body, headers);
+    return result;
+  }
 }

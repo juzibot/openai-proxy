@@ -81,6 +81,28 @@ export class OpenaiProxyService {
     );
   }
 
+  async uploadFile(file: Express.Multer.File, body: any, headers: any) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, file.originalname);
+    for (const [key, value] of Object.entries(body)) {
+      formData.append(key, value);
+    }
+
+    const finalHeaders = {
+      Authorization: headers.authorization,
+      'Content-Type': 'multipart/form-data',
+      ...formData.getHeaders(),
+    };
+
+    const response = await this.makeRequest(
+      'https://api.openai.com/v1/files',
+      finalHeaders,
+      formData,
+    );
+
+    return response;
+  }
+
   private async makeRequest(
     url: string,
     headers: any,
