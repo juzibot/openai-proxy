@@ -31,14 +31,29 @@ export class GoogleProxyService {
     return this.makeRequest(url, headers, body, query, false);
   }
 
-  async uploadFileInit(body: any, headers: any): Promise<{ status: number; headers: any; data: any }> {
+  async embedContent(body: any, headers: any, query: any, model: string) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent`;
+    return this.makeRequest(url, headers, body, query, false);
+  }
+
+  async batchEmbedContents(body: any, headers: any, query: any, model: string) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`;
+    return this.makeRequest(url, headers, body, query, false);
+  }
+
+  async uploadFileInit(
+    body: any,
+    headers: any,
+  ): Promise<{ status: number; headers: any; data: any }> {
     const url = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
     const result = await this.makeRequest(url, headers, body, {}, false, {
       customHeaders: {
         'X-Goog-Upload-Protocol': headers['x-goog-upload-protocol'],
         'X-Goog-Upload-Command': headers['x-goog-upload-command'],
-        'X-Goog-Upload-Header-Content-Length': headers['x-goog-upload-header-content-length'],
-        'X-Goog-Upload-Header-Content-Type': headers['x-goog-upload-header-content-type'],
+        'X-Goog-Upload-Header-Content-Length':
+          headers['x-goog-upload-header-content-length'],
+        'X-Goog-Upload-Header-Content-Type':
+          headers['x-goog-upload-header-content-type'],
       },
       validateStatus: (status) => status === 200 || status === 308,
       timeout: 2 * MINUTE,
@@ -50,7 +65,8 @@ export class GoogleProxyService {
   async uploadFileData(uploadUrl: string, body: Buffer, headers: any) {
     const contentLength = headers['content-length'] || body.length;
     const uploadOffset = headers['x-goog-upload-offset'] || '0';
-    const uploadCommand = headers['x-goog-upload-command'] || 'upload, finalize';
+    const uploadCommand =
+      headers['x-goog-upload-command'] || 'upload, finalize';
     const result = await this.makeRequest(uploadUrl, headers, body, {}, false, {
       customHeaders: {
         'Content-Length': contentLength.toString(),
@@ -60,7 +76,8 @@ export class GoogleProxyService {
       timeout: 5 * MINUTE,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: (status) => status === 200 || status === 201 || status === 308,
+      validateStatus: (status) =>
+        status === 200 || status === 201 || status === 308,
       isBinaryData: true,
       returnFullResponse: true,
     });
@@ -76,26 +93,34 @@ export class GoogleProxyService {
     chunkData: Buffer,
     headers: any,
     chunkIndex: number,
-    totalChunks: number
+    totalChunks: number,
   ) {
     const contentLength = chunkData.length;
     const uploadOffset = headers['x-goog-upload-offset'] || '0';
     const isLastChunk = chunkIndex === totalChunks - 1;
     const uploadCommand = isLastChunk ? 'upload, finalize' : 'upload';
 
-    const result = await this.makeRequest(uploadUrl, headers, chunkData, {}, false, {
-      customHeaders: {
-        'Content-Length': contentLength.toString(),
-        'X-Goog-Upload-Offset': uploadOffset,
-        'X-Goog-Upload-Command': uploadCommand,
+    const result = await this.makeRequest(
+      uploadUrl,
+      headers,
+      chunkData,
+      {},
+      false,
+      {
+        customHeaders: {
+          'Content-Length': contentLength.toString(),
+          'X-Goog-Upload-Offset': uploadOffset,
+          'X-Goog-Upload-Command': uploadCommand,
+        },
+        timeout: 5 * MINUTE,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        validateStatus: (status) =>
+          status === 200 || status === 201 || status === 308,
+        isBinaryData: true,
+        returnFullResponse: true, // 返回完整响应以获取文件信息
       },
-      timeout: 5 * MINUTE,
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      validateStatus: (status) => status === 200 || status === 201 || status === 308,
-      isBinaryData: true,
-      returnFullResponse: true, // 返回完整响应以获取文件信息
-    });
+    );
     if (result.status === 201) {
       return result;
     }
@@ -103,11 +128,18 @@ export class GoogleProxyService {
   }
 
   async getFileInfo(url: string, headers: any, query?: any) {
-    const result = await this.makeRequest(url, headers, null, query || {}, false, {
-      method: 'GET',
-      timeout: 30000,
-      isBinaryData: true,  // 避免为 GET 请求添加 Content-Type header
-    });
+    const result = await this.makeRequest(
+      url,
+      headers,
+      null,
+      query || {},
+      false,
+      {
+        method: 'GET',
+        timeout: 30000,
+        isBinaryData: true, // 避免为 GET 请求添加 Content-Type header
+      },
+    );
     return result;
   }
 
@@ -180,39 +212,51 @@ export class GoogleProxyService {
         if (stream) {
           return e.response.data;
         }
-        throw new HttpException({
-          message: e.response.data?.message || e.message,
-          data: e.response.data,
-          status: e.response.status,
-          statusText: e.response.statusText,
-          headers: e.response.headers,
-        }, e.response.status);
+        throw new HttpException(
+          {
+            message: e.response.data?.message || e.message,
+            data: e.response.data,
+            status: e.response.status,
+            statusText: e.response.statusText,
+            headers: e.response.headers,
+          },
+          e.response.status,
+        );
       } else if (e.request) {
-        throw new HttpException({
-          message: `Network request failed: ${e.message}`,
-          code: e.code,
-          errno: e.errno,
-          syscall: e.syscall,
-          hostname: e.hostname,
-          port: e.port,
-          path: e.path,
-        }, 500);
+        throw new HttpException(
+          {
+            message: `Network request failed: ${e.message}`,
+            code: e.code,
+            errno: e.errno,
+            syscall: e.syscall,
+            hostname: e.hostname,
+            port: e.port,
+            path: e.path,
+          },
+          500,
+        );
       } else {
-        throw new HttpException({
-          message: e.message,
-          stack: e.stack,
-          name: e.name,
-        }, 500);
+        throw new HttpException(
+          {
+            message: e.message,
+            stack: e.stack,
+            name: e.name,
+          },
+          500,
+        );
       }
     }
     if (!validateStatus(response.status)) {
-      throw new HttpException({
-        message: response.data?.message || `HTTP ${response.status} Error`,
-        data: response.data,
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      }, response.status);
+      throw new HttpException(
+        {
+          message: response.data?.message || `HTTP ${response.status} Error`,
+          data: response.data,
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        },
+        response.status,
+      );
     }
     return returnFullResponse
       ? {

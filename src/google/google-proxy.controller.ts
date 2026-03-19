@@ -49,6 +49,10 @@ export class GoogleProxyController {
         model,
       );
       return new StreamableFile(result);
+    } else if (method === 'embedContent') {
+      return this.service.embedContent(body, headers, query, model);
+    } else if (method === 'batchEmbedContents') {
+      return this.service.batchEmbedContents(body, headers, query, model);
     } else {
       throw new HttpException('Method not found', 404);
     }
@@ -65,11 +69,11 @@ export class GoogleProxyController {
     const params = req.params as any;
     const reqParams = params.reqParams;
     const [model, method] = reqParams.split(':');
-    
+
     if (method !== 'countTokens') {
       throw new HttpException('Method not found', 404);
     }
-    
+
     const result = await this.service.countTokens(body, headers, query, model);
     return result;
   }
@@ -86,11 +90,15 @@ export class GoogleProxyController {
       const queryString = new URLSearchParams(query).toString();
       const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?${queryString}`;
       const bufferBody = req.body;
-      const result = await this.service.uploadFileData(uploadUrl, bufferBody, headers);
+      const result = await this.service.uploadFileData(
+        uploadUrl,
+        bufferBody,
+        headers,
+      );
       if (result && typeof result === 'object' && 'status' in result) {
         res.status(result.status);
         if (result.headers) {
-          Object.keys(result.headers).forEach(key => {
+          Object.keys(result.headers).forEach((key) => {
             res.setHeader(key, result.headers[key]);
           });
         }
@@ -101,7 +109,7 @@ export class GoogleProxyController {
 
     const result = await this.service.uploadFileInit(body, headers);
     res.status(result.status);
-    Object.keys(result.headers).forEach(key => {
+    Object.keys(result.headers).forEach((key) => {
       res.setHeader(key, result.headers[key]);
     });
     return result.data;
@@ -118,7 +126,13 @@ export class GoogleProxyController {
     const chunkIndex = query.chunk_index ? parseInt(query.chunk_index) : 0;
     const totalChunks = query.total_chunks ? parseInt(query.total_chunks) : 1;
     if (totalChunks > 1) {
-      return this.service.uploadFileChunk(uploadUrl, body, headers, chunkIndex, totalChunks);
+      return this.service.uploadFileChunk(
+        uploadUrl,
+        body,
+        headers,
+        chunkIndex,
+        totalChunks,
+      );
     } else {
       return this.service.uploadFileData(uploadUrl, body, headers);
     }
@@ -134,7 +148,13 @@ export class GoogleProxyController {
     const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files/${path}`;
     const chunkIndex = parseInt(query.chunk_index || '0');
     const totalChunks = parseInt(query.total_chunks || '1');
-    return this.service.uploadFileChunk(uploadUrl, body, headers, chunkIndex, totalChunks);
+    return this.service.uploadFileChunk(
+      uploadUrl,
+      body,
+      headers,
+      chunkIndex,
+      totalChunks,
+    );
   }
 
   @Get('v1beta/:path(*)')
