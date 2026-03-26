@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -23,10 +23,14 @@ export class BedrockProxyService {
     });
     const client = new BedrockRuntimeClient({ region, credentials });
 
-    const response = await client.send(command);
-    const decodedResponseBody = new TextDecoder().decode(response.body);
-    const responseBody = JSON.parse(decodedResponseBody);
-    return responseBody;
+    try {
+      const response = await client.send(command);
+      const decodedResponseBody = new TextDecoder().decode(response.body);
+      const responseBody = JSON.parse(decodedResponseBody);
+      return responseBody;
+    } catch (error: any) {
+      throw new HttpException(error.message, error.statusCode);
+    }
   }
 
   async streamChatCompletion(body: any, response: Response) {
