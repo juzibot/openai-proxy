@@ -7,8 +7,8 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Credentials } from 'aws-sdk';
-import { SocksProxyAgent } from 'socks-proxy-agent';
 import { Response } from 'express';
+import { getHttpAgents } from 'src/common/http-client';
 
 /**
  * Bedrock v2 proxy — 使用 AWS SDK v3 + NodeHttpHandler
@@ -34,15 +34,13 @@ export class BedrockAnthropicProxyService {
     });
 
     const clientOptions: any = { region, credentials };
-    if (socksHost) {
-      const agent = new SocksProxyAgent(socksHost);
-      clientOptions.requestHandler = new NodeHttpHandler({
-        httpAgent: agent,
-        httpsAgent: agent,
-        connectionTimeout: 30_000,
-        socketTimeout: 10 * 60_000, // 10 minutes for long completions
-      });
-    }
+    const { httpAgent, httpsAgent } = getHttpAgents(socksHost);
+    clientOptions.requestHandler = new NodeHttpHandler({
+      httpAgent,
+      httpsAgent,
+      connectionTimeout: 30_000,
+      socketTimeout: 10 * 60_000, // 10 minutes for long completions
+    });
 
     return new BedrockRuntimeClient(clientOptions);
   }

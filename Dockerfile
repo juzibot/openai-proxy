@@ -1,7 +1,8 @@
-FROM node:18.16.0-alpine3.17
+FROM node:18.16.0-bookworm-slim
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
-RUN apk -u add --no-cache bash curl
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash curl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 

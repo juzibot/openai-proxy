@@ -1,14 +1,14 @@
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { Agent as HttpAgent } from 'http';
-import { Agent as HttpsAgent } from 'https';
-import { SocksProxyAgent } from 'socks-proxy-agent';
+import { describeNetworkError, getHttpAgents } from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 import FormData from 'form-data';
 
 @Injectable()
 export class OpenaiProxyService {
+  private readonly logger = new Logger(OpenaiProxyService.name);
+
   @Inject()
   private readonly configService: ConfigService;
 
@@ -256,9 +256,13 @@ export class OpenaiProxyService {
         }
         throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
-        console.log(e.message);
-        throw new Error(
-          `Failed to send message. error message: ${e.message}, request: ${e.request}`,
+        const detail = describeNetworkError(e);
+        this.logger.error(
+          `openai upstream network error url=${url} ${JSON.stringify(detail)}`,
+        );
+        throw new HttpException(
+          { message: `Network request failed: ${e.message}`, ...detail },
+          500,
         );
       } else {
         throw e;
@@ -297,9 +301,13 @@ export class OpenaiProxyService {
         }
         throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
-        console.log(e.message);
-        throw new Error(
-          `Failed to send message. error message: ${e.message}, request: ${e.request}`,
+        const detail = describeNetworkError(e);
+        this.logger.error(
+          `openai upstream network error url=${url} ${JSON.stringify(detail)}`,
+        );
+        throw new HttpException(
+          { message: `Network request failed: ${e.message}`, ...detail },
+          500,
         );
       } else {
         throw e;
@@ -315,16 +323,6 @@ export class OpenaiProxyService {
 
   private getAgents() {
     const socksHost = this.configService.get<string | undefined>('socksHost');
-    let httpAgent: HttpAgent | undefined;
-    let httpsAgent: HttpsAgent | undefined;
-    if (socksHost) {
-      httpAgent = new SocksProxyAgent(socksHost);
-      httpsAgent = new SocksProxyAgent(socksHost);
-      httpsAgent.options.rejectUnauthorized = false;
-    }
-    return {
-      httpAgent,
-      httpsAgent,
-    };
+    return getHttpAgents(socksHost);
   }
 }
