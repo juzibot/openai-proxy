@@ -1,7 +1,9 @@
 import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { describeNetworkError, getHttpAgents } from 'src/common/http-client';
+import {
+  describeNetworkError,
+  HttpClientService,
+} from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 import FormData from 'form-data';
 
@@ -10,7 +12,7 @@ export class AnthropicProxyService {
   private readonly logger = new Logger(AnthropicProxyService.name);
 
   @Inject()
-  private readonly configService: ConfigService;
+  private readonly httpClient: HttpClientService;
 
   async chatCompletion(body: any, headers: any) {
     const url = 'https://api.anthropic.com/v1/messages';
@@ -55,7 +57,7 @@ export class AnthropicProxyService {
     body: any,
     stream?: boolean,
   ) {
-    const { httpAgent, httpsAgent } = this.getAgents();
+    const { httpAgent, httpsAgent } = this.httpClient.getAgents();
     let response: any;
     try {
       response = await axios(url, {
@@ -98,10 +100,5 @@ export class AnthropicProxyService {
       throw error;
     }
     return response.data;
-  }
-
-  private getAgents() {
-    const socksHost = this.configService.get<string | undefined>('socksHost');
-    return getHttpAgents(socksHost);
   }
 }

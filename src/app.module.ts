@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
+import { HttpClientModule } from './common/http-client';
 import { OpenaiProxyModule } from './openai/openai-proxy.module';
 import { NestjsFormDataModule } from 'nestjs-form-data';
 import { AnthropicProxyModule } from './anthropic/anthropic-proxy.module';
@@ -15,6 +16,7 @@ import { BedrockProxyModule } from './bedrock/bedrock-proxy.module';
       isGlobal: true,
     }),
     NestjsFormDataModule.config({ isGlobal: true }),
+    HttpClientModule,
     OpenaiProxyModule,
     AnthropicProxyModule,
     GoogleProxyModule,

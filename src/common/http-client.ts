@@ -1,6 +1,7 @@
 import { Agent as HttpAgent } from 'http';
 import { Agent as HttpsAgent } from 'https';
-import { Logger } from '@nestjs/common';
+import { Global, Injectable, Logger, Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import CacheableLookup from 'cacheable-lookup';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
@@ -88,3 +89,21 @@ export function describeNetworkError(e: any): Record<string, any> {
     address: e.address,
   };
 }
+
+@Injectable()
+export class HttpClientService {
+  constructor(private readonly configService: ConfigService) {}
+
+  getAgents(): HttpAgents {
+    const socksHost = this.configService.get<string | undefined>('socksHost');
+    return getHttpAgents(socksHost);
+  }
+}
+
+@Global()
+@Module({
+  imports: [ConfigModule],
+  providers: [HttpClientService],
+  exports: [HttpClientService],
+})
+export class HttpClientModule {}

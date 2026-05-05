@@ -1,7 +1,9 @@
 import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { describeNetworkError, getHttpAgents } from 'src/common/http-client';
+import {
+  describeNetworkError,
+  HttpClientService,
+} from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 
 @Injectable()
@@ -9,7 +11,7 @@ export class GoogleProxyService {
   private readonly logger = new Logger(GoogleProxyService.name);
 
   @Inject()
-  private readonly configService: ConfigService;
+  private readonly httpClient: HttpClientService;
 
   async generateContent(body: any, headers: any, query: any, model: string) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -160,7 +162,7 @@ export class GoogleProxyService {
       isBinaryData?: boolean;
     },
   ) {
-    const { httpAgent, httpsAgent } = this.getAgents();
+    const { httpAgent, httpsAgent } = this.httpClient.getAgents();
     const {
       method = 'POST',
       customHeaders = {},
@@ -265,10 +267,5 @@ export class GoogleProxyService {
           data: response.data,
         }
       : response.data;
-  }
-
-  private getAgents() {
-    const socksHost = this.configService.get<string | undefined>('socksHost');
-    return getHttpAgents(socksHost);
   }
 }

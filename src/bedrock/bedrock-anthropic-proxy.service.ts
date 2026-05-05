@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -8,7 +7,7 @@ import {
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Credentials } from 'aws-sdk';
 import { Response } from 'express';
-import { getHttpAgents } from 'src/common/http-client';
+import { HttpClientService } from 'src/common/http-client';
 
 /**
  * Bedrock v2 proxy — 使用 AWS SDK v3 + NodeHttpHandler
@@ -20,21 +19,20 @@ import { getHttpAgents } from 'src/common/http-client';
 @Injectable()
 export class BedrockAnthropicProxyService {
   @Inject()
-  private readonly configService: ConfigService;
+  private readonly httpClient: HttpClientService;
 
   private createClient(
     accessKeyId: string,
     accessKeySecret: string,
     region: string,
   ) {
-    const socksHost = this.configService.get<string | undefined>('socksHost');
     const credentials = new Credentials({
       accessKeyId,
       secretAccessKey: accessKeySecret,
     });
 
     const clientOptions: any = { region, credentials };
-    const { httpAgent, httpsAgent } = getHttpAgents(socksHost);
+    const { httpAgent, httpsAgent } = this.httpClient.getAgents();
     clientOptions.requestHandler = new NodeHttpHandler({
       httpAgent,
       httpsAgent,
