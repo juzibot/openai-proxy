@@ -1,15 +1,17 @@
-import { HttpException, Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-import { Agent as HttpAgent } from 'http';
-import { Agent as HttpsAgent } from 'https';
-import { SocksProxyAgent } from 'socks-proxy-agent';
+import {
+  describeNetworkError,
+  HttpClientService,
+} from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 
 @Injectable()
 export class GoogleProxyService {
+  private readonly logger = new Logger(GoogleProxyService.name);
+
   @Inject()
-  private readonly configService: ConfigService;
+  private readonly httpClient: HttpClientService;
 
   async generateContent(body: any, headers: any, query: any, model: string) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -160,7 +162,7 @@ export class GoogleProxyService {
       isBinaryData?: boolean;
     },
   ) {
-    const { httpAgent, httpsAgent } = this.getAgents();
+    const { httpAgent, httpsAgent } = this.httpClient.getAgents();
     const {
       method = 'POST',
       customHeaders = {},
@@ -223,14 +225,14 @@ export class GoogleProxyService {
           e.response.status,
         );
       } else if (e.request) {
+        const detail = describeNetworkError(e);
+        this.logger.error(
+          `google upstream network error url=${url} ${JSON.stringify(detail)}`,
+        );
         throw new HttpException(
           {
             message: `Network request failed: ${e.message}`,
-            code: e.code,
-            errno: e.errno,
-            syscall: e.syscall,
-            hostname: e.hostname,
-            port: e.port,
+            ...detail,
             path: e.path,
           },
           500,
@@ -265,20 +267,5 @@ export class GoogleProxyService {
           data: response.data,
         }
       : response.data;
-  }
-
-  private getAgents() {
-    const socksHost = this.configService.get<string | undefined>('socksHost');
-    let httpAgent: HttpAgent | undefined;
-    let httpsAgent: HttpsAgent | undefined;
-    if (socksHost) {
-      httpAgent = new SocksProxyAgent(socksHost);
-      httpsAgent = new SocksProxyAgent(socksHost);
-      httpsAgent.options.rejectUnauthorized = false;
-    }
-    return {
-      httpAgent,
-      httpsAgent,
-    };
   }
 }
