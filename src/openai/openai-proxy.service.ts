@@ -26,6 +26,21 @@ export class OpenaiProxyService {
     );
   }
 
+  // Responses API。GPT-5.6 起，带 function tools 的推理请求在 /v1/chat/completions
+  // 上会被拒（报文要求改走这里），pro / codex 系列更是只提供本端点。
+  // 与 chatCompletion 一样按 body.stream 走 SSE 透传。
+  async responses(body: any, headers: any) {
+    const url = 'https://api.openai.com/v1/responses';
+    return this.makeRequest(
+      url,
+      {
+        Authorization: headers.authorization,
+      },
+      body,
+      body.stream,
+    );
+  }
+
   async embeddings(body: any, headers: any) {
     const url = 'https://api.openai.com/v1/embeddings';
     return this.makeRequest(

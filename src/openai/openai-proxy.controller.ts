@@ -32,6 +32,16 @@ export class OpenaiProxyController {
     return result;
   }
 
+  @Post('/v1/responses')
+  @HttpCode(200)
+  async responses(@Body() body: any, @Headers() headers: any) {
+    const result = await this.service.responses(body, headers);
+    if (body.stream) {
+      return new StreamableFile(result);
+    }
+    return result;
+  }
+
   @Post('/v1/embeddings')
   @HttpCode(200)
   async embeddings(@Body() body: any, @Headers() headers: any) {
