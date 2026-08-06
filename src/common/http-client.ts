@@ -43,15 +43,24 @@ export interface HttpAgents {
   httpsAgent: HttpsAgent;
 }
 
+// 空闲连接在池里的存活上限。中间链路（SOCKS 代理、NAT、防火墙）会静默回收长时间
+// 空闲的连接，本端的连接池感知不到——keepAliveMsecs 的 TCP 探测只能覆盖到代理那一段，
+// 代理到上游那一段断了探不出来。一旦复用到这种连接，请求发出去不会有任何响应，
+// 要一直挂到 axios 的 timeout（10 分钟）才失败。让空闲连接早点退休即可避开。
+// 只作用于 idle socket，不会打断正在等待模型响应的请求。
+const IDLE_SOCKET_TIMEOUT = 30_000;
+
 const directAgents: HttpAgents = (() => {
   const httpAgent = new HttpAgent({
     keepAlive: true,
     keepAliveMsecs: 30_000,
+    timeout: IDLE_SOCKET_TIMEOUT,
     maxSockets: 256,
   });
   const httpsAgent = new HttpsAgent({
     keepAlive: true,
     keepAliveMsecs: 30_000,
+    timeout: IDLE_SOCKET_TIMEOUT,
     maxSockets: 256,
   });
   cacheable.install(httpAgent);
@@ -65,11 +74,15 @@ export function getHttpAgents(socksHost?: string): HttpAgents {
   if (!socksHost) return directAgents;
   const cached = socksAgentCache.get(socksHost);
   if (cached) return cached;
+  // timeout 不能传进构造函数：SocksProxyAgent 会把它当成整条 socket 的 inactivity
+  // timeout，并挂上 socket.on('timeout') -> destroy，非流式请求等模型出首字节的那几十秒
+  // 正好是没有数据的，会被误杀。只设 options.timeout，走 http.Agent 的空闲连接回收。
   const agent = new SocksProxyAgent(socksHost, {
     keepAlive: true,
     keepAliveMsecs: 30_000,
   });
   (agent as any).options.rejectUnauthorized = false;
+  (agent as any).options.timeout = IDLE_SOCKET_TIMEOUT;
   const next: HttpAgents = {
     httpAgent: agent as unknown as HttpAgent,
     httpsAgent: agent as unknown as HttpsAgent,
