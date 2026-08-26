@@ -8,6 +8,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Credentials } from 'aws-sdk';
 import { Response } from 'express';
 import { HttpClientService } from 'src/common/http-client';
+import { describeAwsError, toUpstreamHttpException } from './aws-error';
 
 /**
  * Bedrock v2 proxy — 使用 AWS SDK v3 + NodeHttpHandler
@@ -58,28 +59,12 @@ export class BedrockAnthropicProxyService {
       const decodedResponseBody = new TextDecoder().decode(response.body);
       return JSON.parse(decodedResponseBody);
     } catch (error: any) {
-      // Extract full error details from Bedrock response
-      const errorDetail: any = {
-        name: error.name,
-        message: error.message,
-        statusCode: error.$metadata?.httpStatusCode,
-        requestId: error.$metadata?.requestId,
-      };
-      // Try to decode error body if available
-      if (error.$response?.body) {
-        try {
-          errorDetail.body = new TextDecoder().decode(
-            await streamToBuffer(error.$response.body),
-          );
-        } catch {
-          /* ignore */
-        }
-      }
+      const errorDetail = await describeAwsError(error);
       console.error(
         'Bedrock v2 chatCompletion error:',
         JSON.stringify(errorDetail),
       );
-      throw error;
+      throw toUpstreamHttpException(errorDetail);
     }
   }
 
@@ -93,12 +78,21 @@ export class BedrockAnthropicProxyService {
       body: JSON.stringify(requestBody),
     });
 
+    // send 先于 setHeader —— 此时响应头尚未发出，失败可走 Nest 正常 JSON 错误
+    let bedrockResponse: any;
+    try {
+      bedrockResponse = await client.send(command);
+    } catch (error: any) {
+      const errorDetail = await describeAwsError(error);
+      console.error('Bedrock v2 stream error:', JSON.stringify(errorDetail));
+      throw toUpstreamHttpException(errorDetail);
+    }
+
     response.setHeader('Content-Type', 'text/event-stream');
     response.setHeader('Cache-Control', 'no-cache');
     response.setHeader('Connection', 'keep-alive');
 
     try {
-      const bedrockResponse = await client.send(command);
       const stream = bedrockResponse.body;
 
       for await (const chunk of stream) {
@@ -112,21 +106,14 @@ export class BedrockAnthropicProxyService {
       response.write('data: [DONE]\n\n');
       response.end();
     } catch (error: any) {
-      console.error('Bedrock v2 stream error:', {
-        name: error.name,
-        message: error.message,
-        statusCode: error.$metadata?.httpStatusCode,
-      });
-      response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      // 头已发出，只能把错误详情写进 SSE
+      const errorDetail = await describeAwsError(error);
+      console.error(
+        'Bedrock v2 stream chunk error:',
+        JSON.stringify(errorDetail),
+      );
+      response.write(`data: ${JSON.stringify({ error: errorDetail })}\n\n`);
       response.end();
     }
   }
-}
-
-async function streamToBuffer(stream: any): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks) as unknown as Uint8Array;
 }
