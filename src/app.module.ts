@@ -8,6 +8,7 @@ import { AnthropicProxyModule } from './anthropic/anthropic-proxy.module';
 import { GoogleProxyModule } from './google/google-proxy.module';
 import { XaiProxyModule } from './xai/xai-proxy.module';
 import { BedrockProxyModule } from './bedrock/bedrock-proxy.module';
+import { VertexProxyModule } from './vertex/vertex-proxy.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { BedrockProxyModule } from './bedrock/bedrock-proxy.module';
     GoogleProxyModule,
     XaiProxyModule,
     BedrockProxyModule,
+    VertexProxyModule,
   ],
 })
 export class AppModule {}
