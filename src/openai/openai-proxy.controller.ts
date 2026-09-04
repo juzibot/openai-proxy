@@ -16,6 +16,10 @@ import {
 } from '@nestjs/platform-express';
 import { UseInterceptors } from '@nestjs/common';
 import { Get, Param, Query } from '@nestjs/common';
+import {
+  singleFileUploadOptions,
+  videoEditUploadOptions,
+} from '../common/upload';
 
 @Controller()
 export class OpenaiProxyController {
@@ -50,7 +54,7 @@ export class OpenaiProxyController {
   }
 
   @Post('/v1/audio/transcriptions')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', singleFileUploadOptions))
   @HttpCode(200)
   async transcriptions(
     @UploadedFile() file: Express.Multer.File,
@@ -76,7 +80,7 @@ export class OpenaiProxyController {
   }
 
   @Post('/v1/files')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', singleFileUploadOptions))
   @HttpCode(200)
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
@@ -98,7 +102,7 @@ export class OpenaiProxyController {
   }
 
   @Post('/v1/videos/transcriptions')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', singleFileUploadOptions))
   @HttpCode(200)
   async videosTranscriptions(
     @UploadedFile() file: Express.Multer.File,
@@ -110,7 +114,7 @@ export class OpenaiProxyController {
   }
 
   @Post('/v1/videos/translations')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', singleFileUploadOptions))
   @HttpCode(200)
   async videosTranslations(
     @UploadedFile() file: Express.Multer.File,
@@ -123,11 +127,14 @@ export class OpenaiProxyController {
 
   @Post('/v1/videos/edits')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'video', maxCount: 1 },
-      { name: 'file', maxCount: 1 }, // allow alternate field name
-      { name: 'mask', maxCount: 1 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'video', maxCount: 1 },
+        { name: 'file', maxCount: 1 }, // allow alternate field name
+        { name: 'mask', maxCount: 1 },
+      ],
+      videoEditUploadOptions,
+    ),
   )
   @HttpCode(200)
   async videosEdits(

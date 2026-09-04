@@ -1,11 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
-import { Credentials } from 'aws-sdk';
 import { Response } from 'express';
 import { HttpClientService } from 'src/common/http-client';
 import { describeAwsError, toUpstreamHttpException } from './aws-error';
@@ -19,20 +18,13 @@ import { describeAwsError, toUpstreamHttpException } from './aws-error';
  */
 @Injectable()
 export class BedrockAnthropicProxyService {
+  private readonly logger = new Logger(BedrockAnthropicProxyService.name);
+
   @Inject()
   private readonly httpClient: HttpClientService;
 
-  private createClient(
-    accessKeyId: string,
-    accessKeySecret: string,
-    region: string,
-  ) {
-    const credentials = new Credentials({
-      accessKeyId,
-      secretAccessKey: accessKeySecret,
-    });
-
-    const clientOptions: any = { region, credentials };
+  private createClient(region: string) {
+    const clientOptions: any = { region };
     const { httpAgent, httpsAgent } = this.httpClient.getAgents();
     clientOptions.requestHandler = new NodeHttpHandler({
       httpAgent,
@@ -45,8 +37,8 @@ export class BedrockAnthropicProxyService {
   }
 
   async chatCompletion(body: any) {
-    const { modelId, accessKeyId, accessKeySecret, region, requestBody } = body;
-    const client = this.createClient(accessKeyId, accessKeySecret, region);
+    const { modelId, region, requestBody } = body;
+    const client = this.createClient(region);
 
     const command = new InvokeModelCommand({
       modelId,
@@ -60,7 +52,7 @@ export class BedrockAnthropicProxyService {
       return JSON.parse(decodedResponseBody);
     } catch (error: any) {
       const errorDetail = await describeAwsError(error);
-      console.error(
+      this.logger.error(
         'Bedrock v2 chatCompletion error:',
         JSON.stringify(errorDetail),
       );
@@ -69,8 +61,8 @@ export class BedrockAnthropicProxyService {
   }
 
   async streamChatCompletion(body: any, response: Response) {
-    const { modelId, accessKeyId, accessKeySecret, region, requestBody } = body;
-    const client = this.createClient(accessKeyId, accessKeySecret, region);
+    const { modelId, region, requestBody } = body;
+    const client = this.createClient(region);
 
     const command = new InvokeModelWithResponseStreamCommand({
       modelId,
@@ -84,7 +76,10 @@ export class BedrockAnthropicProxyService {
       bedrockResponse = await client.send(command);
     } catch (error: any) {
       const errorDetail = await describeAwsError(error);
-      console.error('Bedrock v2 stream error:', JSON.stringify(errorDetail));
+      this.logger.error(
+        'Bedrock v2 stream error:',
+        JSON.stringify(errorDetail),
+      );
       throw toUpstreamHttpException(errorDetail);
     }
 
@@ -108,11 +103,15 @@ export class BedrockAnthropicProxyService {
     } catch (error: any) {
       // 头已发出，只能把错误详情写进 SSE
       const errorDetail = await describeAwsError(error);
-      console.error(
+      this.logger.error(
         'Bedrock v2 stream chunk error:',
         JSON.stringify(errorDetail),
       );
-      response.write(`data: ${JSON.stringify({ error: errorDetail })}\n\n`);
+      response.write(
+        `data: ${JSON.stringify({
+          error: { message: 'Bedrock stream failed' },
+        })}\n\n`,
+      );
       response.end();
     }
   }

@@ -1,28 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
-import { Credentials } from 'aws-sdk';
 import { Response } from 'express';
 import { describeAwsError, toUpstreamHttpException } from './aws-error';
 
 @Injectable()
 export class BedrockProxyService {
+  private readonly logger = new Logger(BedrockProxyService.name);
+
   async chatCompletion(body: any) {
-    const { modelId, accessKeyId, accessKeySecret, region, requestBody } = body;
+    const { modelId, region, requestBody } = body;
     const command = new InvokeModelCommand({
       modelId,
       contentType: 'application/json',
       body: JSON.stringify(requestBody),
     });
 
-    const credentials = new Credentials({
-      accessKeyId: accessKeyId,
-      secretAccessKey: accessKeySecret,
-    });
-    const client = new BedrockRuntimeClient({ region, credentials });
+    const client = new BedrockRuntimeClient({ region });
 
     try {
       const response = await client.send(command);
@@ -31,7 +28,7 @@ export class BedrockProxyService {
       return responseBody;
     } catch (error: any) {
       const errorDetail = await describeAwsError(error);
-      console.error(
+      this.logger.error(
         'Bedrock v1 chatCompletion error:',
         JSON.stringify(errorDetail),
       );
@@ -40,17 +37,13 @@ export class BedrockProxyService {
   }
 
   async streamChatCompletion(body: any, response: Response) {
-    const { modelId, accessKeyId, accessKeySecret, region, requestBody } = body;
+    const { modelId, region, requestBody } = body;
     const command = new InvokeModelWithResponseStreamCommand({
       modelId,
       contentType: 'application/json',
       body: JSON.stringify(requestBody),
     });
-    const credentials = new Credentials({
-      accessKeyId: accessKeyId,
-      secretAccessKey: accessKeySecret,
-    });
-    const client = new BedrockRuntimeClient({ region, credentials });
+    const client = new BedrockRuntimeClient({ region });
 
     // send 先于 setHeader —— 此时响应头尚未发出，失败可走 Nest 正常 JSON 错误
     let bedrockResponse: any;
@@ -58,7 +51,10 @@ export class BedrockProxyService {
       bedrockResponse = await client.send(command);
     } catch (error: any) {
       const errorDetail = await describeAwsError(error);
-      console.error('Bedrock v1 stream error:', JSON.stringify(errorDetail));
+      this.logger.error(
+        'Bedrock v1 stream error:',
+        JSON.stringify(errorDetail),
+      );
       throw toUpstreamHttpException(errorDetail);
     }
     const stream = bedrockResponse.body;
@@ -87,11 +83,15 @@ export class BedrockProxyService {
     } catch (error: any) {
       // 头已发出，只能把错误详情写进 SSE
       const errorDetail = await describeAwsError(error);
-      console.error(
+      this.logger.error(
         'Bedrock v1 stream chunk error:',
         JSON.stringify(errorDetail),
       );
-      response.write(`data: ${JSON.stringify({ error: errorDetail })}\n\n`);
+      response.write(
+        `data: ${JSON.stringify({
+          error: { message: 'Bedrock stream failed' },
+        })}\n\n`,
+      );
       response.end();
     }
   }

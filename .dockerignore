@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+.env
+.env.*
+.DS_Store
+coverage
+node_modules
+npm-debug.log*
+tmp

@@ -6,6 +6,7 @@ import {
 } from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 import FormData from 'form-data';
+import { safeUpstreamOrigin } from '../common/upstream-url';
 
 @Injectable()
 export class AnthropicProxyService {
@@ -75,28 +76,31 @@ export class AnthropicProxyService {
       });
     } catch (e) {
       if (e.response) {
-        if (body.stream) {
-          return e.response.data;
-        }
-        throw new HttpException(e.response.data, e.response.status);
+        throw new HttpException(
+          'Anthropic upstream request rejected',
+          e.response.status,
+        );
       } else if (e.request) {
         const detail = describeNetworkError(e);
         this.logger.error(
-          `anthropic upstream network error url=${url} ${JSON.stringify(
-            detail,
-          )}`,
+          `anthropic upstream network error upstream=${safeUpstreamOrigin(
+            url,
+          )} ${JSON.stringify(detail)}`,
         );
-        throw new HttpException(
-          { message: `Network request failed: ${e.message}`, ...detail },
-          500,
-        );
+        throw new HttpException('Anthropic upstream request failed', 502);
       } else {
-        throw e;
+        this.logger.error(
+          `anthropic request setup error name=${e?.name ?? 'Error'}`,
+        );
+        throw new HttpException('Anthropic upstream request failed', 502);
       }
     }
 
     if (response.status !== 200) {
-      const error = new HttpException(response.data, response.status);
+      const error = new HttpException(
+        'Anthropic upstream request rejected',
+        response.status,
+      );
       throw error;
     }
     return response.data;
