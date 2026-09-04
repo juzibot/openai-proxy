@@ -15,6 +15,27 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { GoogleProxyService } from './google-proxy.service';
+import { encodeUpstreamPath } from '../common/upstream-url';
+import { filterGoogleUploadHeaders } from '../common/upstream-headers';
+
+function parseModelRequest(reqParams: string) {
+  const separator = reqParams.lastIndexOf(':');
+  if (separator <= 0 || separator === reqParams.length - 1) {
+    throw new HttpException('Invalid model request', 400);
+  }
+  return {
+    model: reqParams.slice(0, separator),
+    method: reqParams.slice(separator + 1),
+  };
+}
+
+function applyUploadHeaders(res: Response, headers: Record<string, unknown>) {
+  Object.entries(filterGoogleUploadHeaders(headers)).forEach(
+    ([name, value]) => {
+      res.setHeader(name, value);
+    },
+  );
+}
 
 @Controller('google')
 export class GoogleProxyController {
@@ -31,7 +52,7 @@ export class GoogleProxyController {
   ) {
     const params = req.params as any;
     const reqParams = params.reqParams;
-    const [model, method] = reqParams.split(':');
+    const { model, method } = parseModelRequest(reqParams);
 
     if (method === 'generateContent') {
       const result = await this.service.generateContent(
@@ -68,7 +89,7 @@ export class GoogleProxyController {
   ) {
     const params = req.params as any;
     const reqParams = params.reqParams;
-    const [model, method] = reqParams.split(':');
+    const { model, method } = parseModelRequest(reqParams);
 
     if (method !== 'countTokens') {
       throw new HttpException('Method not found', 404);
@@ -87,20 +108,19 @@ export class GoogleProxyController {
     @Req() req: any,
   ) {
     if (query.upload_id) {
-      const queryString = new URLSearchParams(query).toString();
-      const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?${queryString}`;
+      const uploadUrl =
+        'https://generativelanguage.googleapis.com/upload/v1beta/files';
       const bufferBody = req.body;
       const result = await this.service.uploadFileData(
         uploadUrl,
         bufferBody,
         headers,
+        query,
       );
       if (result && typeof result === 'object' && 'status' in result) {
         res.status(result.status);
         if (result.headers) {
-          Object.keys(result.headers).forEach((key) => {
-            res.setHeader(key, result.headers[key]);
-          });
+          applyUploadHeaders(res, result.headers);
         }
         return result.data;
       }
@@ -109,9 +129,7 @@ export class GoogleProxyController {
 
     const result = await this.service.uploadFileInit(body, headers);
     res.status(result.status);
-    Object.keys(result.headers).forEach((key) => {
-      res.setHeader(key, result.headers[key]);
-    });
+    applyUploadHeaders(res, result.headers);
     return result.data;
   }
 
@@ -122,7 +140,8 @@ export class GoogleProxyController {
     @Headers() headers: any,
     @Query() query: any,
   ) {
-    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files/${path}`;
+    const safePath = encodeUpstreamPath(path, 'Google upload path');
+    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files/${safePath}`;
     const chunkIndex = query.chunk_index ? parseInt(query.chunk_index) : 0;
     const totalChunks = query.total_chunks ? parseInt(query.total_chunks) : 1;
     if (totalChunks > 1) {
@@ -145,7 +164,8 @@ export class GoogleProxyController {
     @Headers() headers: any,
     @Query() query: any,
   ) {
-    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files/${path}`;
+    const safePath = encodeUpstreamPath(path, 'Google upload path');
+    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files/${safePath}`;
     const chunkIndex = parseInt(query.chunk_index || '0');
     const totalChunks = parseInt(query.total_chunks || '1');
     return this.service.uploadFileChunk(
@@ -163,7 +183,11 @@ export class GoogleProxyController {
     @Headers() headers: any,
     @Query() query: any,
   ) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/${path}`;
+    const safePath = encodeUpstreamPath(path, 'Google file path');
+    if (!/^files\/[^/]+$/.test(safePath)) {
+      throw new HttpException('Unsupported Google resource path', 404);
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/${safePath}`;
     return this.service.getFileInfo(url, headers, query);
   }
 }

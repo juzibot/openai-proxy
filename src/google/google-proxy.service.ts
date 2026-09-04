@@ -5,6 +5,12 @@ import {
   HttpClientService,
 } from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
+import { MAX_UPLOAD_BYTES } from '../common/upload';
+import { filterGoogleUploadHeaders } from '../common/upstream-headers';
+import {
+  encodeUpstreamSegment,
+  safeUpstreamOrigin,
+} from '../common/upstream-url';
 
 @Injectable()
 export class GoogleProxyService {
@@ -14,7 +20,8 @@ export class GoogleProxyService {
   private readonly httpClient: HttpClientService;
 
   async generateContent(body: any, headers: any, query: any, model: string) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:generateContent`;
     return this.makeRequest(url, headers, body, query, false);
   }
 
@@ -24,22 +31,26 @@ export class GoogleProxyService {
     query: any,
     model: string,
   ) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent`;
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:streamGenerateContent`;
     return this.makeRequest(url, headers, body, query, true);
   }
 
   async countTokens(body: any, headers: any, query: any, model: string) {
-    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:countTokens`;
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const url = `https://generativelanguage.googleapis.com/v1/models/${safeModel}:countTokens`;
     return this.makeRequest(url, headers, body, query, false);
   }
 
   async embedContent(body: any, headers: any, query: any, model: string) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent`;
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:embedContent`;
     return this.makeRequest(url, headers, body, query, false);
   }
 
   async batchEmbedContents(body: any, headers: any, query: any, model: string) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`;
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:batchEmbedContents`;
     return this.makeRequest(url, headers, body, query, false);
   }
 
@@ -64,25 +75,37 @@ export class GoogleProxyService {
     return result;
   }
 
-  async uploadFileData(uploadUrl: string, body: Buffer, headers: any) {
-    const contentLength = headers['content-length'] || body.length;
+  async uploadFileData(
+    uploadUrl: string,
+    body: Buffer,
+    headers: any,
+    query: Record<string, unknown> = {},
+  ) {
+    const contentLength = body.length;
     const uploadOffset = headers['x-goog-upload-offset'] || '0';
     const uploadCommand =
       headers['x-goog-upload-command'] || 'upload, finalize';
-    const result = await this.makeRequest(uploadUrl, headers, body, {}, false, {
-      customHeaders: {
-        'Content-Length': contentLength.toString(),
-        'X-Goog-Upload-Offset': uploadOffset,
-        'X-Goog-Upload-Command': uploadCommand,
+    const result = await this.makeRequest(
+      uploadUrl,
+      headers,
+      body,
+      query,
+      false,
+      {
+        customHeaders: {
+          'Content-Length': contentLength.toString(),
+          'X-Goog-Upload-Offset': uploadOffset,
+          'X-Goog-Upload-Command': uploadCommand,
+        },
+        timeout: 5 * MINUTE,
+        maxContentLength: MAX_UPLOAD_BYTES,
+        maxBodyLength: MAX_UPLOAD_BYTES,
+        validateStatus: (status) =>
+          status === 200 || status === 201 || status === 308,
+        isBinaryData: true,
+        returnFullResponse: true,
       },
-      timeout: 5 * MINUTE,
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      validateStatus: (status) =>
-        status === 200 || status === 201 || status === 308,
-      isBinaryData: true,
-      returnFullResponse: true,
-    });
+    );
 
     if (result.status === 201) {
       return result;
@@ -115,8 +138,8 @@ export class GoogleProxyService {
           'X-Goog-Upload-Command': uploadCommand,
         },
         timeout: 5 * MINUTE,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+        maxContentLength: MAX_UPLOAD_BYTES,
+        maxBodyLength: MAX_UPLOAD_BYTES,
         validateStatus: (status) =>
           status === 200 || status === 201 || status === 308,
         isBinaryData: true,
@@ -211,59 +234,35 @@ export class GoogleProxyService {
       response = await axios(url, axiosConfig);
     } catch (e) {
       if (e.response) {
-        if (stream) {
-          return e.response.data;
-        }
         throw new HttpException(
-          {
-            message: e.response.data?.message || e.message,
-            data: e.response.data,
-            status: e.response.status,
-            statusText: e.response.statusText,
-            headers: e.response.headers,
-          },
+          'Google upstream request rejected',
           e.response.status,
         );
       } else if (e.request) {
         const detail = describeNetworkError(e);
         this.logger.error(
-          `google upstream network error url=${url} ${JSON.stringify(detail)}`,
+          `google upstream network error upstream=${safeUpstreamOrigin(
+            url,
+          )} ${JSON.stringify(detail)}`,
         );
-        throw new HttpException(
-          {
-            message: `Network request failed: ${e.message}`,
-            ...detail,
-            path: e.path,
-          },
-          500,
-        );
+        throw new HttpException('Google upstream request failed', 502);
       } else {
-        throw new HttpException(
-          {
-            message: e.message,
-            stack: e.stack,
-            name: e.name,
-          },
-          500,
+        this.logger.error(
+          `google request setup error name=${e?.name ?? 'Error'}`,
         );
+        throw new HttpException('Google upstream request failed', 502);
       }
     }
     if (!validateStatus(response.status)) {
       throw new HttpException(
-        {
-          message: response.data?.message || `HTTP ${response.status} Error`,
-          data: response.data,
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        },
+        'Google upstream request rejected',
         response.status,
       );
     }
     return returnFullResponse
       ? {
           status: response.status,
-          headers: response.headers,
+          headers: filterGoogleUploadHeaders(response.headers),
           data: response.data,
         }
       : response.data;

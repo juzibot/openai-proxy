@@ -9,11 +9,17 @@ import { GoogleProxyModule } from './google/google-proxy.module';
 import { XaiProxyModule } from './xai/xai-proxy.module';
 import { BedrockProxyModule } from './bedrock/bedrock-proxy.module';
 import { VertexProxyModule } from './vertex/vertex-proxy.module';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ProxyAuthGuard } from './common/proxy-auth.guard';
+import { SanitizedExceptionFilter } from './common/sanitized-exception.filter';
+import { HealthController } from './health.controller';
+import { validateEnvironment } from './config/configuration';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       load: [configuration],
+      validate: validateEnvironment,
       isGlobal: true,
     }),
     NestjsFormDataModule.config({ isGlobal: true }),
@@ -24,6 +30,11 @@ import { VertexProxyModule } from './vertex/vertex-proxy.module';
     XaiProxyModule,
     BedrockProxyModule,
     VertexProxyModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    { provide: APP_GUARD, useClass: ProxyAuthGuard },
+    { provide: APP_FILTER, useClass: SanitizedExceptionFilter },
   ],
 })
 export class AppModule {}

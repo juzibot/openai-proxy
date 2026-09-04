@@ -81,7 +81,6 @@ export function getHttpAgents(socksHost?: string): HttpAgents {
     keepAlive: true,
     keepAliveMsecs: 30_000,
   });
-  (agent as any).options.rejectUnauthorized = false;
   (agent as any).options.timeout = IDLE_SOCKET_TIMEOUT;
   const next: HttpAgents = {
     httpAgent: agent as unknown as HttpAgent,

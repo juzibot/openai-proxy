@@ -6,6 +6,10 @@ import {
 } from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
 import FormData from 'form-data';
+import {
+  encodeUpstreamSegment,
+  safeUpstreamOrigin,
+} from '../common/upstream-url';
 
 @Injectable()
 export class OpenaiProxyService {
@@ -229,14 +233,16 @@ export class OpenaiProxyService {
   }
 
   async videosRetrieve(videoId: string, headers: any) {
-    const url = `https://api.openai.com/v1/videos/${videoId}`;
+    const safeVideoId = encodeUpstreamSegment(videoId, 'video id');
+    const url = `https://api.openai.com/v1/videos/${safeVideoId}`;
     return this.makeGetRequest(url, {
       Authorization: headers.authorization,
     });
   }
 
   async videosRetrieveContent(videoId: string, headers: any) {
-    const url = `https://api.openai.com/v1/videos/${videoId}/content`;
+    const safeVideoId = encodeUpstreamSegment(videoId, 'video id');
+    const url = `https://api.openai.com/v1/videos/${safeVideoId}/content`;
     const stream = await this.makeGetRequest(
       url,
       {
@@ -268,26 +274,31 @@ export class OpenaiProxyService {
       });
     } catch (e) {
       if (e.response) {
-        if (body.stream) {
-          return e.response.data;
-        }
-        throw new HttpException(e.response.data, e.response.status);
+        throw new HttpException(
+          'OpenAI upstream request rejected',
+          e.response.status,
+        );
       } else if (e.request) {
         const detail = describeNetworkError(e);
         this.logger.error(
-          `openai upstream network error url=${url} ${JSON.stringify(detail)}`,
+          `openai upstream network error upstream=${safeUpstreamOrigin(
+            url,
+          )} ${JSON.stringify(detail)}`,
         );
-        throw new HttpException(
-          { message: `Network request failed: ${e.message}`, ...detail },
-          500,
-        );
+        throw new HttpException('OpenAI upstream request failed', 502);
       } else {
-        throw e;
+        this.logger.error(
+          `openai request setup error name=${e?.name ?? 'Error'}`,
+        );
+        throw new HttpException('OpenAI upstream request failed', 502);
       }
     }
 
     if (response.status !== 200) {
-      const error = new HttpException(response.data, response.status);
+      const error = new HttpException(
+        'OpenAI upstream request rejected',
+        response.status,
+      );
       throw error;
     }
     return response.data;
@@ -313,26 +324,31 @@ export class OpenaiProxyService {
       });
     } catch (e) {
       if (e.response) {
-        if (stream) {
-          return e.response.data;
-        }
-        throw new HttpException(e.response.data, e.response.status);
+        throw new HttpException(
+          'OpenAI upstream request rejected',
+          e.response.status,
+        );
       } else if (e.request) {
         const detail = describeNetworkError(e);
         this.logger.error(
-          `openai upstream network error url=${url} ${JSON.stringify(detail)}`,
+          `openai upstream network error upstream=${safeUpstreamOrigin(
+            url,
+          )} ${JSON.stringify(detail)}`,
         );
-        throw new HttpException(
-          { message: `Network request failed: ${e.message}`, ...detail },
-          500,
-        );
+        throw new HttpException('OpenAI upstream request failed', 502);
       } else {
-        throw e;
+        this.logger.error(
+          `openai request setup error name=${e?.name ?? 'Error'}`,
+        );
+        throw new HttpException('OpenAI upstream request failed', 502);
       }
     }
 
     if (response.status !== 200) {
-      const error = new HttpException(response.data, response.status);
+      const error = new HttpException(
+        'OpenAI upstream request rejected',
+        response.status,
+      );
       throw error;
     }
     return response.data;

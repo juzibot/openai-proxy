@@ -5,6 +5,13 @@ import {
   HttpClientService,
 } from 'src/common/http-client';
 import { MINUTE } from 'src/common/time';
+import {
+  encodeUpstreamSegment,
+  safeUpstreamOrigin,
+} from '../common/upstream-url';
+
+const LOCATION_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ALLOWED_PUBLISHERS = new Set(['google', 'anthropic']);
 
 /**
  * Vertex AI（现名 Gemini Enterprise Agent Platform）转发。
@@ -45,6 +52,9 @@ export class VertexProxyService {
    * 漏掉 us / eu 会把 multi-region 请求打到并不存在的 us-aiplatform.googleapis.com。
    */
   resolveHost(location: string): string {
+    if (location.length > 63 || !LOCATION_PATTERN.test(location)) {
+      throw new HttpException('Invalid Vertex location', 400);
+    }
     switch (location) {
       case 'global':
         return 'https://aiplatform.googleapis.com';
@@ -58,8 +68,8 @@ export class VertexProxyService {
   }
 
   /**
-   * 拼完整的上游 URL。model 原样透传——Claude 的 model id 带 @ 日期后缀
-   * （claude-sonnet-4-5@20250929），@ 在 path segment 里是合法字符，不要编码。
+   * 拼完整的上游 URL。每个动态 path segment 都单独编码；Claude model id
+   * 中的 @ 日期后缀会编码为 %40，Google 仍按同一个 segment 解码处理。
    */
   buildUrl(
     projectId: string,
@@ -69,7 +79,19 @@ export class VertexProxyService {
     method: string,
   ): string {
     const host = this.resolveHost(location);
-    return `${host}/v1/projects/${projectId}/locations/${location}/publishers/${publisher}/models/${model}:${method}`;
+    if (!ALLOWED_PUBLISHERS.has(publisher)) {
+      throw new HttpException('Unsupported Vertex publisher', 400);
+    }
+    if (!this.isSupportedMethod(method)) {
+      throw new HttpException('Unsupported Vertex method', 404);
+    }
+
+    const safeProjectId = encodeUpstreamSegment(projectId, 'project id');
+    const safeLocation = encodeUpstreamSegment(location, 'location');
+    const safePublisher = encodeUpstreamSegment(publisher, 'publisher');
+    const safeModel = encodeUpstreamSegment(model, 'model');
+    const safeMethod = encodeUpstreamSegment(method, 'method');
+    return `${host}/v1/projects/${safeProjectId}/locations/${safeLocation}/publishers/${safePublisher}/models/${safeModel}:${safeMethod}`;
   }
 
   /**
@@ -118,7 +140,13 @@ export class VertexProxyService {
     }
 
     const url = this.buildUrl(projectId, location, publisher, model, method);
-    return this.makeRequest(url, headers, body, query, this.isStreamMethod(method));
+    return this.makeRequest(
+      url,
+      headers,
+      body,
+      query,
+      this.isStreamMethod(method),
+    );
   }
 
   private async makeRequest(
@@ -159,40 +187,23 @@ export class VertexProxyService {
       response = await axios(url, axiosConfig);
     } catch (e) {
       if (e.response) {
-        if (stream) {
-          return e.response.data;
-        }
         throw new HttpException(
-          {
-            message: e.response.data?.error?.message || e.message,
-            data: e.response.data,
-            status: e.response.status,
-            statusText: e.response.statusText,
-          },
+          'Vertex upstream request rejected',
           e.response.status,
         );
       } else if (e.request) {
         const detail = describeNetworkError(e);
         this.logger.error(
-          `vertex upstream network error url=${url} ${JSON.stringify(detail)}`,
+          `vertex upstream network error upstream=${safeUpstreamOrigin(
+            url,
+          )} ${JSON.stringify(detail)}`,
         );
-        throw new HttpException(
-          {
-            message: `Network request failed: ${e.message}`,
-            ...detail,
-            path: e.path,
-          },
-          500,
-        );
+        throw new HttpException('Vertex upstream request failed', 502);
       } else {
-        throw new HttpException(
-          {
-            message: e.message,
-            stack: e.stack,
-            name: e.name,
-          },
-          500,
+        this.logger.error(
+          `vertex request setup error name=${e?.name ?? 'Error'}`,
         );
+        throw new HttpException('Vertex upstream request failed', 502);
       }
     }
 

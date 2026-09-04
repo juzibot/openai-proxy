@@ -11,6 +11,7 @@ import {
 import { AnthropicProxyService } from './anthropic-proxy.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors } from '@nestjs/common';
+import { singleFileUploadOptions } from '../common/upload';
 
 @Controller('anthropic')
 export class AnthropicProxyController {
@@ -42,7 +43,7 @@ export class AnthropicProxyController {
   }
 
   @Post('/v1/audio/transcriptions')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', singleFileUploadOptions))
   @HttpCode(200)
   async transcriptions(
     @UploadedFile() file: Express.Multer.File,

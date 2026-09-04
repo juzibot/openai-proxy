@@ -25,13 +25,20 @@ describe('VertexProxyService', () => {
         'https://us-aiplatform.googleapis.com',
       );
     });
+
+    it.each(['evil.example.com', 'us-central1@127.0.0.1', '../metadata'])(
+      '拒绝不安全的 location: %s',
+      (location) => {
+        expect(() => service.resolveHost(location)).toThrow(HttpException);
+      },
+    );
   });
 
   describe('parseReqParams', () => {
     it('拆 Gemini 的 model:method', () => {
-      expect(service.parseReqParams('gemini-2.5-flash:generateContent')).toEqual(
-        { model: 'gemini-2.5-flash', method: 'generateContent' },
-      );
+      expect(
+        service.parseReqParams('gemini-2.5-flash:generateContent'),
+      ).toEqual({ model: 'gemini-2.5-flash', method: 'generateContent' });
     });
 
     it('拆 Claude 带 @ 日期后缀的 model id', () => {
@@ -76,7 +83,7 @@ describe('VertexProxyService', () => {
       );
     });
 
-    it('Claude + multi-region，@ 后缀原样保留不编码', () => {
+    it('Claude + multi-region，对 @ 后缀做路径编码', () => {
       expect(
         service.buildUrl(
           '123456789012',
@@ -87,8 +94,29 @@ describe('VertexProxyService', () => {
         ),
       ).toBe(
         'https://aiplatform.us.rep.googleapis.com/v1/projects/123456789012/locations/us' +
-          '/publishers/anthropic/models/claude-sonnet-4-5@20250929:rawPredict',
+          '/publishers/anthropic/models/claude-sonnet-4-5%4020250929:rawPredict',
       );
+    });
+
+    it('拒绝路径注入和未知 publisher', () => {
+      expect(() =>
+        service.buildUrl(
+          '../other',
+          'global',
+          'google',
+          'gemini-2.5-flash',
+          'generateContent',
+        ),
+      ).toThrow(HttpException);
+      expect(() =>
+        service.buildUrl(
+          'project',
+          'global',
+          'attacker',
+          'gemini-2.5-flash',
+          'generateContent',
+        ),
+      ).toThrow(HttpException);
     });
 
     it('regional endpoint', () => {
