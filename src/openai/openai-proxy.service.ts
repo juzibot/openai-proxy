@@ -86,16 +86,41 @@ export class OpenaiProxyService {
     );
   }
 
-  async imageEdits(body: any, headers: any) {
+  async imageEdits(files: Express.Multer.File[], body: any, headers: any) {
     const url = 'https://api.openai.com/v1/images/edits';
-    return this.makeRequest(
-      url,
-      {
-        Authorization: headers.authorization,
-        'Content-Type': 'application/json',
-      },
-      body,
-    );
+
+    // 上游只认 multipart。没带文件的请求（纯 JSON）按原样透传，交给上游去报错，
+    // 免得 proxy 自己编一个和上游不一样的错误。
+    if (!files?.length) {
+      return this.makeRequest(
+        url,
+        {
+          Authorization: headers.authorization,
+          'Content-Type': 'application/json',
+        },
+        body,
+      );
+    }
+
+    const formData = new FormData();
+    for (const file of files) {
+      // 保留原字段名（image / image[] / mask），并带上文件名与 MIME —— 上游靠它们
+      // 判断图片格式，缺了会被判成非法文件。
+      formData.append(file.fieldname, file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype,
+      });
+    }
+    for (const [key, value] of Object.entries(body ?? {})) {
+      formData.append(key, value);
+    }
+
+    const finalHeaders = {
+      Authorization: headers.authorization,
+      ...formData.getHeaders(),
+    };
+
+    return this.makeRequest(url, finalHeaders, formData);
   }
 
   async uploadFile(file: Express.Multer.File, body: any, headers: any) {
