@@ -13,6 +13,7 @@ import { OpenaiProxyService } from './openai-proxy.service';
 import {
   FileInterceptor,
   FileFieldsInterceptor,
+  AnyFilesInterceptor,
 } from '@nestjs/platform-express';
 import { UseInterceptors } from '@nestjs/common';
 import { Get, Param, Query } from '@nestjs/common';
@@ -68,10 +69,20 @@ export class OpenaiProxyController {
     return result;
   }
 
+  // images/edits 是 multipart 接口，参考图以文件形式上传。全局只挂了 json /
+  // urlencoded，没有这个 interceptor 的话 multipart 请求进来 body 会是空对象 ——
+  // 不只是图片，连 model / prompt / quality 都一起丢掉。
+  // 图片字段名由调用方决定（单图 image、多图 image[]），还可能带 mask，
+  // 所以用 AnyFilesInterceptor 按字段名原样收，转发时原样还给上游。
   @Post('/v1/images/edits')
+  @UseInterceptors(AnyFilesInterceptor())
   @HttpCode(200)
-  async imageEdits(@Body() body: any, @Headers() headers: any) {
-    const result = await this.service.imageEdits(body, headers);
+  async imageEdits(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
+    @Headers() headers: any,
+  ) {
+    const result = await this.service.imageEdits(files, body, headers);
     return result;
   }
 
